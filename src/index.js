@@ -800,5 +800,34 @@ app.get('/consultar/masterwallet/', async (req, res) => {
   });
 
 });
+app.get('/consultar/wallet/:wallet', async (req, res) => {
+  let wallet = req.params.wallet;
+  const json = await fetch("https://tronpulse.io/api/wallet/" + wallet)
+    .catch(error => { console.error(error) })
+    .then((result) => {
+      return result.json();
+    })
+
+  var value = await contractUSDT.balanceOf(wallet).call();
+  value = new BigNumber(value._hex).shiftedBy(-6).toNumber();
+
+  res.send({
+    wallet: wallet,
+    assets: [
+      //modificado para mostrar mayor flujo de informacion de el api
+      { usdt: value },
+      { trx_disponible: json.data.balance.available },
+      { trx_fronzen_E: json.data.balance.frozen_energy },
+      { trx_fronzen_B: json.data.balance.frozen_bandwith },
+      { trx_fronzen_T: json.data.balance.frozen },
+      { trx_total: json.data.balance.total }
+    ],
+    energy: json.data.resource.energy_available,
+    energy_total: json.data.resource.energy_limit,
+    bandwith: json.data.resource.bandwith_available,
+    bandwith_total: json.data.resource.bandwith_limit
+  });
+
+});
 
 app.listen(port, () => console.log('Escuchando Puerto: ' + port))
