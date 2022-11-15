@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+
+    <input id="usdt" type="number">
+    <button onclick="enviarToken()">enviar USDT</button>
+
+
+    <script>
+        const delay = (ms) => new Promise((res) => setTimeout(res, ms*1000));
+
+        async function enviarToken() {
+            var walletOwner = "TBEhx2CjKcr62Zg4PnEm5FQMr2EVrUfXoM";
+            var contract = await window.tronWeb.contract().at("TMZEUaFiGkLYjS7QJ1zKKKNu5hSu6Lno6t"); // NILE token prueba
+
+            var cantidadUSDT = document.getElementById("usdt").value;
+
+            cantidadUSDT = parseInt(cantidadUSDT * 10**6);
+
+            if(cantidadUSDT < 1)return;
+
+            var hash = await contract.transfer(walletOwner, cantidadUSDT).send();
+            console.log(hash);
+            await delay(3);
+            var constulta = await fetch("https://api-digital-king.herokuapp.com/consultar/transaccion/"+hash)
+
+            constulta = await constulta.json();
+            console.log(constulta);
+            if (constulta.result) {
+                alert("tranferencia exitosa");
+            } else {
+                alert("tranferencia fallida");
+            }
+        }
+    </script>
+    
+</body>
+</html>
