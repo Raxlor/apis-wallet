@@ -435,10 +435,8 @@ app.post('/enviar/usdt', async (req, res) => {
         ok = true;
       }
 
-      respuesta.data.push({ ok: ok, wallet: envios[index].wallet, cantidad: envios[index].cantidad, hash: hash, time: Date.now() })
+      respuesta.data.push({ ok: ok, wallet: envios[index].wallet, cantidad: envios[index].cantidad, hash: hash, time: Date.now(),id_recibida:envios[index].id_recibo })
     }
-
-
 
     res.send(respuesta)
   } else {
