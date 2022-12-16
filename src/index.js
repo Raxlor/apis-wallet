@@ -59,7 +59,7 @@ tronWeb.contract().at(contractAddress)
   .then((result) => {
     console.log("contrato conectado [" + contractAddress + "]");
     contractUSDT = result;
-    //console.log(contractUSDT);
+    console.log(contractUSDT);
   })
 
 const app = express();
@@ -110,7 +110,8 @@ async function crearWallet() {
     data: acc,
     ultimoUso: Date.now(),
     usuario: "",
-    disponible: true
+    disponible: true,
+    usos: 1
   };
 
   var newWallet = new walletsTemp(acc);
@@ -136,7 +137,7 @@ async function asignarTRX(wallet) {
     var hash = await tronWeb.trx.sendTransaction(wallet, minTRX_enviar);
     console.log("hash: " + hash.txid);
 
-    await delay(60);
+    await delay(120);
 
     return true;
 
