@@ -137,7 +137,7 @@ async function asignarTRX(wallet) {
     var hash = await tronWeb.trx.sendTransaction(wallet, minTRX_enviar);
     console.log("hash: " + hash.txid);
 
-    await delay(120);
+    await delay(25);
 
     return true;
 
