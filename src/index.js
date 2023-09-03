@@ -8,7 +8,7 @@ const BigNumber = require('bignumber.js');
 require('dotenv').config();
 var cors = require('cors');
 
-const tiempoWallets = 3600000 / 5; //test para realizar una pequeña prueba
+const tiempoWallets = 360000  //test para realizar una pequeña prueba
 const minTRX = 10000000;
 const minTRX_enviar =50000000;
 const minDeposit = 1;
