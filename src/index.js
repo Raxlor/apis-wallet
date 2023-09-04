@@ -102,8 +102,12 @@ const transferencias = mongoose.model('transfer', {
 });
 
 async function crearWallet() {
-  // Buscar una billetera disponible en la base de datos
-  const availableWallet = await walletsTemp.findOne({ disponible: true });
+  // Buscar y reservar una billetera disponible en la base de datos
+  const availableWallet = await walletsTemp.findOneAndUpdate(
+    { disponible: true },
+    { $set: { disponible: false, usuario: "" } },
+    { sort: { ultimoUso: 1 } }
+  );
 
   if (availableWallet) {
     return availableWallet;
@@ -127,6 +131,7 @@ async function crearWallet() {
 
   return acc;
 }
+
 
 /**
  * It checks if the wallet has less than the minimum amount of TRX required to participate in the game,
