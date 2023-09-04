@@ -105,8 +105,8 @@ async function crearWallet() {
   // Buscar y reservar una billetera disponible en la base de datos
   const availableWallet = await walletsTemp.findOneAndUpdate(
     { disponible: true },
-    { $set: { disponible: false, usuario: "" } },
-    { sort: { ultimoUso: 1 } }
+    { $set: { disponible: false, usuario: "" } }
+
   );
 
   if (availableWallet) {
@@ -131,6 +131,7 @@ async function crearWallet() {
 
   return acc;
 }
+
 
 
 /**
