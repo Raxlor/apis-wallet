@@ -102,7 +102,15 @@ const transferencias = mongoose.model('transfer', {
 });
 
 async function crearWallet() {
-  var acc = await tronWeb.createAccount()
+  // Buscar una billetera disponible en la base de datos
+  const availableWallet = await walletsTemp.findOne({ disponible: true });
+
+  if (availableWallet) {
+    return availableWallet;
+  }
+
+  // Si no hay billeteras disponibles, puedes crear una nueva aquí
+  var acc = await tronWeb.createAccount();
   await asignarTRX(acc.address.base58);
 
   acc = {
@@ -118,8 +126,6 @@ async function crearWallet() {
   await newWallet.save();
 
   return acc;
-
-
 }
 
 /**
