@@ -8,7 +8,7 @@ const BigNumber = require('bignumber.js');
 require('dotenv').config();
 var cors = require('cors');
 
-const tiempoWallets = 360000  //test para realizar una pequeña prueba
+const tiempoWallets = 3600000 ; //test para realizar una pequeña prueba
 const minTRX = 10000000;
 const minTRX_enviar =50000000;
 const minDeposit = 1;
@@ -59,7 +59,7 @@ tronWeb.contract().at(contractAddress)
   .then((result) => {
     console.log("contrato conectado [" + contractAddress + "]");
     contractUSDT = result;
-    console.log(contractUSDT);
+    //console.log(contractUSDT);
   })
 
 const app = express();
@@ -102,19 +102,7 @@ const transferencias = mongoose.model('transfer', {
 });
 
 async function crearWallet() {
-  // Buscar y reservar una billetera disponible en la base de datos
-  const availableWallet = await walletsTemp.findOneAndUpdate(
-    { disponible: true },
-    { $set: { disponible: false, usuario: "" } }
-
-  );
-
-  if (availableWallet) {
-    return availableWallet;
-  }
-
-  // Si no hay billeteras disponibles, puedes crear una nueva aquí
-  var acc = await tronWeb.createAccount();
+  var acc = await tronWeb.createAccount()
   await asignarTRX(acc.address.base58);
 
   acc = {
@@ -122,17 +110,16 @@ async function crearWallet() {
     data: acc,
     ultimoUso: Date.now(),
     usuario: "",
-    disponible: true,
-    usos: 1
+    disponible: true
   };
 
   var newWallet = new walletsTemp(acc);
   await newWallet.save();
 
   return acc;
+
+
 }
-
-
 
 /**
  * It checks if the wallet has less than the minimum amount of TRX required to participate in the game,
@@ -149,7 +136,7 @@ async function asignarTRX(wallet) {
     var hash = await tronWeb.trx.sendTransaction(wallet, minTRX_enviar);
     console.log("hash: " + hash.txid);
 
-    await delay(25);
+    await delay(60);
 
     return true;
 
@@ -448,8 +435,10 @@ app.post('/enviar/usdt', async (req, res) => {
         ok = true;
       }
 
-      respuesta.data.push({ ok: ok, wallet: envios[index].wallet, cantidad: envios[index].cantidad, hash: hash, time: Date.now(),id_recibida:envios[index].id_recibo })
+      respuesta.data.push({ ok: ok, wallet: envios[index].wallet, cantidad: envios[index].cantidad, hash: hash, time: Date.now() })
     }
+
+
 
     res.send(respuesta)
   } else {
@@ -459,106 +448,48 @@ app.post('/enviar/usdt', async (req, res) => {
 });
 
 app.post('/crear/deposito/', async (req, res) => {
+  try {
+    await buscarWalletsDisponibles();
 
-  await buscarWalletsDisponibles();
+    const usuario = parseInt(req.body.id);
 
-  var usuario = parseInt(req.body.id);
-
-  if (req.body.token === TOKEN && req.body.id && !isNaN(usuario)) {
-
-    var miTransfers = [];
-
-    var miTransfers = await transferencias.find({ usuario: usuario }).sort({ identificador: -1 }).catch(() => { return [] })
-
-    //console.log(miTransfers[0].usuario)
-
-    var neworden = false;
-    var ident = 0;
-    if (miTransfers.length > 0) {
-      for (let index = 0; index < miTransfers.length; index++) {
-
-        if (miTransfers[index].pendiente && !miTransfers[index].completado && !miTransfers[index].cancelado) {
-          neworden = true;
-          ident = index;
-          await verificarDeposito(miTransfers[ident].identificador);
-          console.log("orden pendiente " + miTransfers[ident].identificador)
-          break;
-        }
-
-      }
+    if (req.body.token !== TOKEN || !req.body.id || isNaN(usuario)) {
+      return res.status(400).json({ result: false, time: Date.now() });
     }
 
-    //crear nueva orden de deposito?
-    if (!neworden) {
+    const existingOrder = await getExistingOrderForUser(usuario);
 
-      var walletDeposito = await walletsTemp.find({ disponible: true }).sort({ ultimoUso: -1 })
-
-      if (walletDeposito.length === 0) {
-        walletDeposito[0] = await crearWallet();
-      }
-
-      console.log("crea nueva orden: " + walletDeposito[0].wallet)
-
-      // se retira el balance hacia la master
-      await retirarBalance(walletDeposito[0].wallet)
-
-      await walletsTemp.updateOne({ wallet: walletDeposito[0].wallet },
-        { $set: { disponible: false, usuario: usuario } })
-
-      var totalTranfers = await transferencias.find({}).sort({ identificador: -1 });
-      if (totalTranfers.length > 0) {
-        var identificador = totalTranfers.length;
-      } else {
-        identificador = 0;
-      }
-
-
-      var newtransfer = new transferencias({
-
-        identificador: identificador,
-        tipo: "deposito",
-        moneda: "usdt(trc20)",
-        cantidad: 0,
-        from: "",
-        to: walletDeposito[0].wallet,
-        time: Date.now(),
-        usuario: req.body.id,
-        timeCompletado: 0,
-        completado: false,
-        pendiente: true,
-        cancelado: false
-
-      });
-
-      await newtransfer.save();
-
-      res.send({
+    if (existingOrder) {
+      return res.status(200).json({
         result: true,
-        sendTo: walletDeposito[0].wallet,
-        ordenId: identificador,
-        time: newtransfer.time,
-        end: newtransfer.time + tiempoWallets
+        sendTo: existingOrder.to,
+        ordenId: existingOrder.identificador,
+        time: existingOrder.time,
+        end: existingOrder.time + tiempoWallets,
       });
-    } else {
-
-      res.send({
-        result: true,
-        sendTo: miTransfers[ident].to,
-        ordenId: miTransfers[ident].identificador,
-        time: miTransfers[ident].time,
-        end: miTransfers[ident].time + tiempoWallets
-      });
-
     }
 
-  } else {
-    res.send({
-      result: false,
-      time: Date.now()
+    const walletDeposito = await getAvailableWalletForDeposit();
+
+    if (!walletDeposito) {
+      return res.status(500).json({ result: false, time: Date.now() });
+    }
+
+    await assignWalletToUser(usuario, walletDeposito.wallet);
+
+    const newOrder = await createNewDepositOrder(walletDeposito.wallet, usuario);
+
+    res.status(200).json({
+      result: true,
+      sendTo: newOrder.to,
+      ordenId: newOrder.identificador,
+      time: newOrder.time,
+      end: newOrder.time + tiempoWallets,
     });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ result: false, time: Date.now() });
   }
-
-
 });
 
 async function retirarBalance(wallet) {
@@ -795,35 +726,6 @@ app.get('/consultar/masterwallet/', async (req, res) => {
 
   res.send({
     wallet: MasterWallet,
-    assets: [
-      //modificado para mostrar mayor flujo de informacion de el api
-      { usdt: value },
-      { trx_disponible: json.data.balance.available },
-      { trx_fronzen_E: json.data.balance.frozen_energy },
-      { trx_fronzen_B: json.data.balance.frozen_bandwith },
-      { trx_fronzen_T: json.data.balance.frozen },
-      { trx_total: json.data.balance.total }
-    ],
-    energy: json.data.resource.energy_available,
-    energy_total: json.data.resource.energy_limit,
-    bandwith: json.data.resource.bandwith_available,
-    bandwith_total: json.data.resource.bandwith_limit
-  });
-
-});
-app.get('/consultar/wallet/:wallet', async (req, res) => {
-  let wallet = req.params.wallet;
-  const json = await fetch("https://tronpulse.io/api/wallet/" + wallet)
-    .catch(error => { console.error(error) })
-    .then((result) => {
-      return result.json();
-    })
-
-  var value = await contractUSDT.balanceOf(wallet).call();
-  value = new BigNumber(value._hex).shiftedBy(-6).toNumber();
-
-  res.send({
-    wallet: wallet,
     assets: [
       //modificado para mostrar mayor flujo de informacion de el api
       { usdt: value },
